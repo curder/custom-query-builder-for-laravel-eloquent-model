@@ -1,66 +1,98 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 自定义模型查询构建器
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+在 Laravel 中，经常会遇到包含太多业务逻辑的模型。此时可以构建自己的查询生成器类，以使模型更加精简。
 
-## About Laravel
+比如下面的模型逻辑：
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+```php
+<?php
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+namespace App\Models;
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
-## Learning Laravel
+class Post extends Model
+{
+    // ...
+    public function scopePublished(Builder $query): Builder
+    {
+        return $query->whereNotNull('published_at')
+            ->where('published_at', '<=', now()->toDateTimeString());
+    }
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+    public function scopeOrderByMostRecent(Builder $query, string $column = 'published_at'): Builder
+    {
+        return $query->orderByDesc($column);
+    }
+}
+```
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+使用模型对数据进行查询比如：
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+```php
+\App\Models\Post::published()->orderByMostRecent()->get();
+```
 
-## Laravel Sponsors
+当模型的查询越来越多的时候，可以通过自定义查询构建器类来重构它，使模型变得简洁。
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## 自定义模型构建器类
 
-### Premium Partners
+模型构建器类需要继承自 `\Illuminate\Database\Eloquent\Builder` 类。
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+```php
+<?php
 
-## Contributing
+namespace App\Models\Builders;
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+use Illuminate\Database\Eloquent\Builder;
 
-## Code of Conduct
+class PostBuilder extends Builder
+{
+    //
+}
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+然后将模型中的 `scope` 查询语法糖方法迁移到自定义构建器中：
 
-## Security Vulnerabilities
+```php
+<?php
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+namespace App\Models\Builders;
 
-## License
+use Illuminate\Database\Eloquent\Builder;
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+class PostBuilder extends Builder
+{
+    public function published(): Builder
+    {
+        return $this->whereNotNull('published_at')
+            ->where('published_at', '<=', now()->toDateTimeString());
+    }
+
+    public function orderByMostRecent(string $column = 'published_at'): Builder
+    {
+        return $this->orderByDesc($column);
+    }
+}
+```
+
+并在模型中使用自定义的构建器类：
+
+```php
+<?php
+
+namespace App\Models;
+
+use App\Models\Builders\PostBuilder;
+use Illuminate\Database\Eloquent\Model;
+
+class Post extends Model
+{
+    // ...
+    public function newEloquentBuilder($query): PostBuilder
+    {
+        return new PostBuilder($query);
+    }
+}
+```
