@@ -1,5 +1,8 @@
 # 自定义模型查询构建器
 
+[![Check & fix styling](https://github.com/curder/custom-query-builder-for-laravel-eloquent-model/actions/workflows/pint.yml/badge.svg?branch=master)](https://github.com/curder/custom-query-builder-for-laravel-eloquent-model/actions/workflows/pint.yml)
+[![Test Laravel Github action](https://github.com/curder/custom-query-builder-for-laravel-eloquent-model/actions/workflows/run-test.yml/badge.svg?branch=master)](https://github.com/curder/custom-query-builder-for-laravel-eloquent-model/actions/workflows/run-test.yml)
+
 在 Laravel 中，经常会遇到包含太多业务逻辑的模型。此时可以构建自己的查询生成器类，以使模型更加精简。
 
 比如下面的模型逻辑：
